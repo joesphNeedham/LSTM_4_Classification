@@ -109,37 +109,36 @@ class Graph(object):
             accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
 
             saver = tf.train.Saver()
-            with tf.Session() as sess:
-                initial = tf.global_variables_initializer()
-                sess.run(initial)
-                iteration = 1
-                for e in range(self.epochs):
-                    for ii,(x,y) in enumerate(self.get_batches(train_x,train_y,self.batch_size),1):
-                        feed = {inputs_:x,
-                                labels_: y[:,None],
-                                keep_prob: self.keep_prob
-                                }
-                        loss, _ = sess.run([cost,optimizer],feed_dict=feed)
+        with tf.Session(graph=graph) as sess:
+            initial = tf.global_variables_initializer()
+            sess.run(initial)
+            iteration = 1
+            for e in range(self.epochs):
+                for ii,(x,y) in enumerate(self.get_batches(train_x,train_y,self.batch_size),1):
+                    feed = {inputs_:x,
+                            labels_: y[:,None],
+                            keep_prob: self.keep_prob
+                            }
+                    loss, _ = sess.run([cost, optimizer], feed_dict=feed)
 
-                        if iteration % 5 == 0:
-                            print("Epoch: {}/{}".format(e, self.epochs),
-                                  "Iteration: {}".format(iteration),
-                                  "Train loss: {:.3f}".format(loss))
-                        if iteration % 25 == 0:
-                            val_acc = []
-                            for x, y in self.get_batches(val_x, val_y, self.batch_size):
-                                feed = {inputs_: x,
-                                        labels_: y[:, None],
-                                        keep_prob: 1}
-                                batch_acc= sess.run([accuracy], feed_dict=feed)
-                                val_acc.append(batch_acc)
-                                print("Val acc: {:.3f}".format(np.mean(val_acc)))
-                        iteration +=1
-                saver.save(sess, "checkpoints/sentiment_rnn.ckpt")
+                    if iteration % 5 == 0:
+                        print("Epoch: {}/{}".format(e, self.epochs),
+                              "Iteration: {}".format(iteration),
+                              "Train loss: {:.3f}".format(loss))
+                    if iteration % 25 == 0:
+                        val_acc = []
+                        for x, y in self.get_batches(val_x, val_y, self.batch_size):
+                            feed = {inputs_: x,
+                                    labels_: y[:, None],
+                                    keep_prob: 1}
+                            batch_acc= sess.run([accuracy], feed_dict=feed)
+                            val_acc.append(batch_acc)
+                            print("Val acc: {:.3f}".format(np.mean(val_acc)))
+                    iteration +=1
+            saver.save(sess, "checkpoints/sentiment_rnn.ckpt")
 
     def test(self):
-        graph = tf.Graph
-        saver = tf.train.Saver()
+        graph = tf.Graph()
         with graph.as_default():
             inputs_ = tf.placeholder(tf.int32, [None, None], name="input")
             labels_ = tf.placeholder(tf.int32, [None, None], name='labels')
@@ -158,21 +157,24 @@ class Graph(object):
             optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(cost)
             correct_pred = tf.equal(tf.cast(tf.round(predictions), tf.int32), labels_)
             accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
-            test_x,test_y = self.features[1]
+            test_x, test_y = self.features[1]
             test_acc = []
-            with tf.Session(graph=graph) as sess:
-                saver.restore(sess, tf.train.latest_checkpoint('checkpoints'))
-                for ii, (x, y) in enumerate(self.get_batches(test_x, test_y, self.batch_size), 1):
-                    feed = {inputs_: x,
-                            labels_: y[:, None],
-                            keep_prob: 1
-                            }
-                    batch_acc = sess.run([accuracy], feed_dict=feed)
-                    test_acc.append(batch_acc)
-                print("Test accuracy: {:.3f}".format(np.mean(test_acc)))
+        with tf.Session(graph=graph) as sess:
+            sess.run(tf.global_variables_initializer())
+            # saver = tf.train.import_meta_graph('checkpoints/sentiment_rnn.ckpt.meta')
+            saver = tf.train.Saver()
+            saver.restore(sess, tf.train.latest_checkpoint('checkpoints'))
+            for ii, (x, y) in enumerate(self.get_batches(test_x, test_y, self.batch_size), 1):
+                feed = {inputs_: x,
+                        labels_: y[:, None],
+                        keep_prob: 1
+                        }
+                batch_acc = sess.run([accuracy], feed_dict=feed)
+                test_acc.append(batch_acc)
+            print("Test accuracy: {:.3f}".format(np.mean(test_acc)))
 
 
 if __name__ == "__main__":
     lstm = Graph("../sentiment-network/reviews.txt", "../sentiment-network/labels.txt")
-    lstm.train()
+    # lstm.train()
     lstm.test()
