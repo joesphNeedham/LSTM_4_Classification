@@ -63,7 +63,7 @@ class DataProcess(object):
 class Graph(object):
     def __init__(self, review_path,label_path):
         self.lstm_state_size = 256
-        self.lstm_layer = 1
+        self.lstm_layer = 3
         self.batch_size = 500
         self.learning_rate = 0.001
         self.embed_size = 300
@@ -85,6 +85,11 @@ class Graph(object):
         for ii in range(0, len(x), batch_size):
             yield x[ii:ii + batch_size], y[ii:ii + batch_size]
 
+    def lstm_cell(self):
+        lstm = tf.contrib.rnn.BasicLSTMCell(self.lstm_state_size)
+        cell = tf.nn.rnn_cell.DropoutWrapper(lstm, output_keep_prob=self.keep_prob)
+        return cell
+
     def train(self):
         train_x, train_y = self.features[0]
         val_x,val_y = self.features[2]
@@ -95,9 +100,7 @@ class Graph(object):
             keep_prob = tf.placeholder(tf.float32, name='keep_prob')
             embedding = tf.Variable(tf.random_uniform((self.word_size, self.embed_size), -1, 1))
             embed = tf.nn.embedding_lookup(embedding, inputs_)
-            lstm =tf.nn.rnn_cell.BasicLSTMCell(self.lstm_state_size)
-            drop = tf.nn.rnn_cell.DropoutWrapper(lstm, output_keep_prob=keep_prob)
-            cell = tf.nn.rnn_cell.MultiRNNCell([drop] * self.lstm_layer)
+            cell = tf.nn.rnn_cell.MultiRNNCell([self.lstm_cell() for _ in range(self.lstm_layer)], state_is_tuple=True)
             initial_state = cell.zero_state(self.batch_size, tf.float32)
             outputs,final_state = tf.nn.dynamic_rnn(cell, embed,
                                              initial_state=initial_state)
@@ -145,9 +148,7 @@ class Graph(object):
             keep_prob = tf.placeholder(tf.float32, name='keep_prob')
             embedding = tf.Variable(tf.random_uniform((self.word_size, self.embed_size), -1, 1))
             embed = tf.nn.embedding_lookup(embedding, inputs_)
-            lstm = tf.nn.rnn_cell.BasicLSTMCell(self.lstm_state_size)
-            drop = tf.nn.rnn_cell.DropoutWrapper(lstm, output_keep_prob=self.keep_prob)
-            cell = tf.nn.rnn_cell.MultiRNNCell([drop] * self.lstm_layer)
+            cell = tf.nn.rnn_cell.MultiRNNCell([self.lstm_cell() for _ in range(self.lstm_layer)], state_is_tuple=True)
             initial_state = cell.zero_state(self.batch_size, tf.float32)
             outputs, final_state = tf.nn.dynamic_rnn(cell, embed,
                                                      initial_state=initial_state)
@@ -176,5 +177,5 @@ class Graph(object):
 
 if __name__ == "__main__":
     lstm = Graph("../sentiment-network/reviews.txt", "../sentiment-network/labels.txt")
-    # lstm.train()
+    lstm.train()
     lstm.test()
